@@ -3,7 +3,5 @@ tags = {
   environment = "Development"
 }
 vnet_name       = "dev-vnet"
-resource_group  = "dev-rg-01"
+resource_group  = "dev-rg"
 subscription_id = "2d86a098-5875-4596-a1ce-e2d30b929833"
-
-#test5
