@@ -56,20 +56,6 @@ jobs:
           path: infra/env-dev/tfplan
           retention-days: 7
 
-      - name: Comment Plan on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '✅ Terraform plan completed. Review the artifacts in the Actions tab.'
-            })
-
-
-
   terraform-apply:
     name: 'Terraform Apply'
     needs: terraform-plan
