@@ -61,12 +61,16 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '✅ Terraform plan completed. Review the artifacts in the Actions tab.'
-            })
+            try {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '✅ Terraform plan completed. Review the artifacts in the Actions tab.'
+              })
+            } catch (error) {
+              console.log('Could not comment on PR (likely due to token permissions):', error.message)
+            }
 
 
 
