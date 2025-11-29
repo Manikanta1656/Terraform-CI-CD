@@ -4,17 +4,21 @@ on:
     branches:
       - main
     paths:
-      - 'infra/env-dev/*.tf'
+      - 'infra/env-dev/**'
   workflow_dispatch:
 
     
 
 jobs:
-  terraform:
-    name: 'Terraform Validate'
+  terraform-plan:
+    name: 'Terraform Plan'
     runs-on: ubuntu-latest
     env:
       TF_IN_AUTOMATION: true
+      ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+      ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+      ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+      ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -23,11 +27,6 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.6
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Terraform Init
         run: |
@@ -43,31 +42,6 @@ jobs:
         run: |
           cd infra/env-dev
           terraform validate
-
-  terraform-plan:
-    name: 'Terraform Plan'
-    needs: terraform
-    runs-on: ubuntu-latest
-    env:
-      TF_IN_AUTOMATION: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.6
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Terraform Init
-        run: |
-          cd infra/env-dev
-          terraform init
 
       - name: Terraform Plan
         id: plan
@@ -94,12 +68,18 @@ jobs:
               body: '✅ Terraform plan completed. Review the artifacts in the Actions tab.'
             })
 
+
+
   terraform-apply:
     name: 'Terraform Apply'
     needs: terraform-plan
     runs-on: ubuntu-latest
     env:
       TF_IN_AUTOMATION: true
+      ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+      ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+      ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+      ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
     environment:
       name: dev-approval
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -112,10 +92,7 @@ jobs:
         with:
           terraform_version: 1.5.6
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      # Using job-level ARM_* env vars from the AZURE_CREDENTIALS secret so no extra azure/login step is needed here.
 
       - name: Terraform Init
         run: |
