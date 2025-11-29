@@ -1,0 +1,119 @@
+name: Terraform-Dev
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infra/en-dev/*.tf'
+  workflow_dispatch:
+
+    
+
+jobs:
+  terraform:
+    name: 'Terraform Validate'
+    runs-on: ubuntu-latest
+    env:
+      TF_IN_AUTOMATION: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.6
+
+      - name: Terraform Init
+        run: |
+          cd infra/env-dev
+          terraform init
+
+      - name: Terraform Format
+        run: |
+          cd infra/env-dev
+          terraform fmt -check
+
+      - name: Terraform Validate
+        run: |
+          cd infra/env-dev
+          terraform validate
+
+  terraform-plan:
+    name: 'Terraform Plan'
+    needs: terraform
+    runs-on: ubuntu-latest
+    env:
+      TF_IN_AUTOMATION: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.6
+
+      - name: Terraform Init
+        run: |
+          cd infra/env-dev
+          terraform init
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          cd infra/env-dev
+          terraform plan -var-file=dev.tfvars -out=tfplan
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan
+          path: infra/env-dev/tfplan
+          retention-days: 7
+
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Terraform plan completed. Review the artifacts in the Actions tab.'
+            })
+
+  terraform-apply:
+    name: 'Terraform Apply'
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+    env:
+      TF_IN_AUTOMATION: true
+    environment:
+      name: dev-approval
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.6
+
+      - name: Terraform Init
+        run: |
+          cd infra/env-dev
+          terraform init
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan
+          path: infra/env-dev/
+
+      - name: Terraform Apply
+        run: |
+          cd infra/env-dev
+          terraform apply -auto-approve tfplan
